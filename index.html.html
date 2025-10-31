@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Datahaven: Moose Memory</title>
+  <style>
+    :root{
+      --bg:#f8f5ec;
+      --card-back:#2b4b3f;
+      --card-front:#ffffff;
+      --accent:#8d5cf6;
+      --glass: rgba(255,255,255,0.8);
+      --card-size:min(110px, 14vw);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial;
+      background:url('background.png') center/cover no-repeat fixed, var(--bg);
+      min-height:100vh;
+      padding:24px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      color:#111;
+    }
+
+    .container{
+      width:1100px;
+      max-width:100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:20px;
+    }
+
+    /* --- Control panel --- */
+    .controls{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
+      background:rgba(255,255,255,0.7);
+      padding:20px 26px;
+      border-radius:14px;
+      box-shadow:0 8px 20px rgba(0,0,0,0.25);
+      backdrop-filter: blur(8px);
+      text-align:center;
+    }
+
+    h1{
+      font-size:24px;
+      color:#111;
+      font-weight:700;
+    }
+
+    .meta{
+      font-size:14px;
+      color:#222;
+      margin-bottom:6px;
+    }
+
+    select{
+      width:180px;
+      padding:6px 10px;
+      border-radius:8px;
+      background:rgba(255,255,255,0.85);
+      color:#000;
+      border:1px solid rgba(0,0,0,0.2);
+      font-weight:500;
+    }
+
+    button{
+      background:linear-gradient(180deg,#8d5cf6,#6b3fe0);
+      border:none;
+      color:#fff;
+      font-weight:600;
+      padding:8px 16px;
+      border-radius:10px;
+      cursor:pointer;
+      box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    }
+
+    .stats{
+      display:flex;
+      gap:14px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-top:8px;
+    }
+
+    .stat{
+      background:rgba(255,255,255,0.8);
+      padding:10px 12px;
+      border-radius:10px;
+      text-align:center;
+      min-width:90px;
+      color:#000;
+      box-shadow:inset 0 0 8px rgba(0,0,0,0.05);
+    }
+    .stat .num{font-size:18px;font-weight:700;color:#111;}
+    .stat .label{font-size:12px;color:#333;}
+
+    footer{
+      margin-top:10px;
+      font-size:13px;
+      color:#333;
+    }
+
+    /* --- Game grid --- */
+    .game-grid{
+      display:grid;
+      gap:12px;
+      justify-content:center;
+    }
+    .game-grid.size-16{grid-template-columns:repeat(4, auto);}
+    .game-grid.size-36{grid-template-columns:repeat(6, auto);}
+    .game-grid.size-64{grid-template-columns:repeat(8, auto);}
+
+    .card{
+      width:var(--card-size);
+      height:var(--card-size);
+      perspective:800px;
+      cursor:pointer;
+    }
+    .card-inner{
+      position:relative;
+      width:100%;
+      height:100%;
+      transform-style:preserve-3d;
+      transition:transform 420ms cubic-bezier(.2,.9,.3,1);
+    }
+    .card.flipped .card-inner{transform:rotateY(180deg);}
+    .face{
+      position:absolute;
+      inset:0;
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      backface-visibility:hidden;
+      box-shadow:0 6px 18px rgba(0,0,0,0.2);
+      overflow:hidden;
+    }
+    .back{background:var(--card-back);color:white;transform:rotateY(0deg);}
+    .front{background:var(--card-front);transform:rotateY(180deg);}
+    .front img{width:100%;height:100%;object-fit:cover;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="controls">
+      <h1>Datahaven: Moose Memory</h1>
+      <div class="meta">Choose a difficulty and start playing!</div>
+      <select id="difficulty">
+        <option value="easy">🌿 Easy </option>
+        <option value="normal" selected>💡 Normal </option>
+        <option value="hard">🔥 Hard </option>
+      </select>
+      <button id="btnNew">Restart Game</button>
+
+      <div class="stats">
+        <div class="stat"><div class="num" id="moves">0</div><div class="label">Moves</div></div>
+        <div class="stat"><div class="num" id="found">0</div><div class="label">Pairs Found</div></div>
+        <div class="stat"><div class="num" id="time">00:00</div><div class="label">Time</div></div>
+      </div>
+
+      <footer>Train your memory in the haven of data! 🌈 Have fun and good luck!</footer>
+    </div>
+
+    <main>
+      <div id="grid" class="game-grid size-36"></div>
+    </main>
+  </div>
+
+  <script>
+    // ====== YOUR IMAGES ======
+    const ASSETS = {
+      Patric: `<img src="images/Patric.png" alt="Patric">`,
+      Benzi: `<img src="images/Benzi.png" alt="Benzi">`,
+      markn: `<img src="images/markn.png" alt="markn">`,
+      yuki: `<img src="images/yuki.png" alt="yuki">`,
+      vickrose: `<img src="images/vickrose.png" alt="vickrose">`,
+      olera: `<img src="images/olera.png" alt="olera">`,
+      baki: `<img src="images/baki.png" alt="baki">`,
+      crypto: `<img src="images/crypto.png" alt="crypto">`
+    };
+
+    const POOL = Object.keys(ASSETS);
+    let cards = [], flipped = [], matched = new Set();
+    let moves = 0, foundPairs = 0, timer = null, seconds = 0, started = false;
+    let currentDifficulty = "normal";
+
+    const grid = document.getElementById('grid');
+    const movesEl = document.getElementById('moves');
+    const foundEl = document.getElementById('found');
+    const timeEl = document.getElementById('time');
+    const btnNew = document.getElementById('btnNew');
+    const difficultyEl = document.getElementById('difficulty');
+
+    function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+    function formatTime(s){const mm=String(Math.floor(s/60)).padStart(2,'0');const ss=String(s%60).padStart(2,'0');return mm+':'+ss;}
+
+    function buildDeck(){
+      let types = [];
+      if(currentDifficulty === "easy") types = shuffle(POOL).slice(0,4);
+      else if(currentDifficulty === "normal") types = shuffle(POOL).slice(0,6);
+      else types = [...POOL];
+      const deck = [];
+      types.forEach(t => {deck.push(t); deck.push(t);});
+      return shuffle(deck);
+    }
+
+    function renderGrid(){
+      grid.innerHTML = '';
+      const gridClass =
+        currentDifficulty === "easy" ? "size-16" :
+        currentDifficulty === "normal" ? "size-36" : "size-64";
+      grid.className = `game-grid ${gridClass}`;
+
+      cards.forEach((type, idx)=>{
+        const card=document.createElement('div');
+        card.className='card';
+        card.dataset.idx=idx;
+        const inner=document.createElement('div');
+        inner.className='card-inner';
+        const back=document.createElement('div');
+        back.className='face back';
+        back.innerHTML=`<div style="width:50%;height:50%;border-radius:50%;background:var(--accent);opacity:0.15;"></div>`;
+        const front=document.createElement('div');
+        front.className='face front';
+        front.innerHTML=ASSETS[type];
+        inner.appendChild(back);
+        inner.appendChild(front);
+        card.appendChild(inner);
+        card.addEventListener('click', onCardClick);
+        grid.appendChild(card);
+      });
+    }
+
+    function startGame(){
+      cards=buildDeck();
+      flipped=[];matched.clear();moves=0;foundPairs=0;seconds=0;started=false;
+      clearInterval(timer);
+      movesEl.textContent='0';foundEl.textContent='0';timeEl.textContent='00:00';
+      renderGrid();
+    }
+
+    function onCardClick(e){
+      const card=e.currentTarget;const idx=Number(card.dataset.idx);
+      if(matched.has(idx)||flipped.includes(idx)||flipped.length===2) return;
+
+      if(!started){started=true;timer=setInterval(()=>{seconds++;timeEl.textContent=formatTime(seconds);},1000);}
+      flipCard(card);flipped.push(idx);
+
+      if(flipped.length===2){
+        moves++;movesEl.textContent=moves;
+        const[a,b]=flipped;
+        if(cards[a]===cards[b]){
+          matched.add(a);matched.add(b);
+          foundPairs++;foundEl.textContent=foundPairs;
+          flipped=[];
+          if(foundPairs===cards.length/2){
+            clearInterval(timer);
+            alert(`🎉 Completed! Time: ${formatTime(seconds)} (${moves} moves)`);
+          }
+        } else {
+          setTimeout(()=>{
+            document.querySelectorAll('.card').forEach(c=>{
+              const i=Number(c.dataset.idx);
+              if(i===a||i===b) unflipCard(c);
+            });
+            flipped=[];
+          },800);
+        }
+      }
+    }
+
+    function flipCard(el){el.classList.add('flipped');}
+    function unflipCard(el){el.classList.remove('flipped');}
+
+    difficultyEl.addEventListener('change',()=>{
+      currentDifficulty=difficultyEl.value;
+      startGame();
+    });
+    btnNew.addEventListener('click',startGame);
+    startGame();
+  </script>
+</body>
+</html>
